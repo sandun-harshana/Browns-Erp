@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
-interface BillRecord {
+export interface BillRecord {
   id: string;
   bill_number: string;
   description: string;
@@ -50,9 +50,20 @@ export default function FinanceManagement() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (data) setBills(data);
+      if (data) {
+        const typedData: BillRecord[] = data.map((item: Record<string, any>) => ({
+          id: String(item.id ?? ""),
+          bill_number: String(item.bill_number ?? ""),
+          description: String(item.description ?? ""),
+          amount: Number(item.amount ?? 0),
+          category: String(item.category ?? "Petty Cash"),
+          status: String(item.status ?? "Pending"),
+          created_at: String(item.created_at ?? new Date().toISOString()),
+        }));
+        setBills(typedData);
+      }
     } catch (error: any) {
-      alert("Error fetching bills: " + error.message);
+      alert("Error fetching bills: " + (error?.message ?? "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -66,12 +77,13 @@ export default function FinanceManagement() {
     }
 
     try {
+      const numericAmount = parseFloat(amount) || 0;
       // 1. Insert Data into Supabase
       const { error } = await supabase.from("bills").insert([
         {
           bill_number: billNum,
           description: desc,
-          amount: parseFloat(amount),
+          amount: numericAmount,
           category: category,
           status: status,
         },
@@ -85,7 +97,7 @@ export default function FinanceManagement() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            to: 'sandun@browns.com', // ⚠️ මාරු කරන්න: ඔයාගේ නිල ඊමේල් ලිපිනය මෙතනට ලබාදෙන්න
+            to: 'sandun@browns.com',
             subject: `⚠️ ALERT: New Bill Updated - ${billNum}`,
             htmlContent: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #e0e0e0; padding: 20px; border-radius: 10px;">
@@ -107,7 +119,7 @@ export default function FinanceManagement() {
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; font-weight: bold; color: #555555;">Amount:</td>
-                    <td style="padding: 8px 0; color: #10b981; font-weight: bold;">Rs. ${parseFloat(amount).toLocaleString()}</td>
+                    <td style="padding: 8px 0; color: #10b981; font-weight: bold;">Rs. ${numericAmount.toLocaleString()}</td>
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; font-weight: bold; color: #555555;">Current Status:</td>
@@ -131,7 +143,7 @@ export default function FinanceManagement() {
       alert("Bill recorded and alert email sent successfully!");
       
     } catch (error: any) {
-      alert("Error adding bill: " + error.message);
+      alert("Error adding bill: " + (error?.message ?? "Unknown error"));
     }
   };
 
@@ -141,12 +153,12 @@ export default function FinanceManagement() {
     doc.text("Browns Engineering & Construction - Finance Report", 14, 15);
     
     const tableRows = bills.map((b) => [
-      b.bill_number,
-      b.description,
-      b.category,
-      `Rs. ${b.amount.toLocaleString()}`,
-      b.status,
-      new Date(b.created_at).toLocaleDateString(),
+      b.bill_number ?? "N/A",
+      b.description ?? "N/A",
+      b.category ?? "N/A",
+      `Rs. ${(b.amount ?? 0).toLocaleString()}`,
+      b.status ?? "Pending",
+      b.created_at ? new Date(b.created_at).toLocaleDateString() : "N/A",
     ]);
 
     doc.autoTable({
@@ -220,15 +232,24 @@ export default function FinanceManagement() {
                 <tbody className="divide-y divide-slate-700 text-slate-300">
                   {bills.map((b) => (
                     <tr key={b.id} className="hover:bg-slate-700/30 transition text-sm">
-                      <td className="p-3 font-semibold text-amber-400">{b.bill_number}</td>
-                      <td className="p-3">{b.description}</td>
-                      <td className="p-3 text-slate-400">{b.category}</td>
-                      <td className="p-3 text-emerald-400">Rs. {b.amount.toLocaleString()}</td>
+                      <td className="p-3 font-semibold text-amber-400">{b.bill_number ?? "N/A"}</td>
+                      <td className="p-3">{b.description ?? "N/A"}</td>
+                      <td className="p-3 text-slate-400">{b.category ?? "N/A"}</td>
+                      <td className="p-3 text-emerald-400">Rs. {(b.amount ?? 0).toLocaleString()}</td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                           b.status === 'Paid' ? 'bg-emerald-500/20 text-emerald-400' :
                           b.status === 'Approved' ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400'
-                        }`}>{b.status}</span>
+                        }`}>{b.status ?? "Pending"}</span>
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

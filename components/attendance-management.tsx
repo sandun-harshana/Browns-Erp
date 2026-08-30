@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-interface AttendanceRecord {
+export interface AttendanceRecord {
   id: string;
   employee_name: string;
   employee_id: string;
@@ -47,9 +47,19 @@ export default function AttendanceManagement() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (data) setRecords(data);
+      if (data) {
+        const typedRecords: AttendanceRecord[] = data.map((item: Record<string, any>) => ({
+          id: String(item.id ?? ""),
+          employee_name: String(item.employee_name ?? item["Name"] ?? "Unknown"),
+          employee_id: String(item.employee_id ?? item["BEC No"] ?? "BR-000"),
+          designation: String(item.designation ?? item["Designation"] ?? "Employee"),
+          status: String(item.status ?? "Present"),
+          check_in_time: String(item.check_in_time ?? item.created_at ?? new Date().toISOString()),
+        }));
+        setRecords(typedRecords);
+      }
     } catch (error: any) {
-      alert("Error: " + error.message);
+      alert("Error: " + (error?.message ?? "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -80,7 +90,7 @@ export default function AttendanceManagement() {
       setDesignation("");
       alert("Attendance marked successfully!");
     } catch (error: any) {
-      alert("Error marking attendance: " + error.message);
+      alert("Error marking attendance: " + (error?.message ?? "Unknown error"));
     }
   };
 
@@ -152,7 +162,7 @@ export default function AttendanceManagement() {
                           </span>
                         </td>
                         <td className="p-3 text-slate-400 text-xs">
-                          {new Date(r.check_in_time).toLocaleTimeString()}
+                          {r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString() : "N/A"}
                         </td>
                       </tr>
                     ))
