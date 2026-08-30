@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabaseClient'
 import DashboardOverview from '@/components/dashboard'
 import FinanceManagement from '@/components/billing-management'
 import VehicleManagementPortal from '@/app/vehicles/page'
+import AttendanceManagement from '@/components/attendance-management'
 import LoginPage, { BECRole } from '@/components/login'
 
 const allNav = [
@@ -219,7 +220,7 @@ export default function Page() {
           )}
 
           {active === 'Dashboard' && <DashboardOverview />}
-          {active === 'Attendance' && <Attendance checkedIn={checkedIn} setCheckedIn={setCheckedIn} notify={notify} />}
+          {active === 'Attendance' && <AttendanceManagement />}
 
           {active === 'Finance' && (
             ['Admin', 'RPM'].includes(userProfile.role) ? (
