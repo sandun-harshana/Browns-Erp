@@ -12,6 +12,7 @@ import {
 
 import { supabase } from '@/lib/supabaseClient'
 import DashboardOverview from '@/components/dashboard'
+import FinanceManagement from '@/components/billing-management'
 
 const nav = [
   { label: 'Dashboard', icon: LayoutDashboard },
@@ -30,12 +31,6 @@ const attendance = [
   ['Michael Chen', 'Fleet Supervisor', '—', 'Absent', 'MC'],
   ['Samuel Adeyemi', 'Site Foreman', '07:35 AM', 'Present', 'SA'],
 ]
-const bills = [
-  ['INV-2841', 'BuildRight Supplies', 'Concrete & aggregates', 'Rs. 2,480,000', 'Due in 3 days', 'pending'],
-  ['INV-2837', 'Northstar Logistics', 'Haulage services', 'Rs. 860,500', 'Paid', 'paid'],
-  ['INV-2829', 'PowerGrid Energy', 'Site power — August', 'Rs. 1,245,000', 'Overdue', 'overdue'],
-  ['INV-2822', 'Apex Safety Ltd.', 'PPE replenishment', 'Rs. 384,750', 'Paid', 'paid'],
-]
 
 function Status({ children, kind }: { children: React.ReactNode; kind: string }) {
   return <span className={`status status-${kind}`}>{kind === 'paid' && <Check size={12} />}{children}</span>
@@ -46,12 +41,10 @@ export default function Page() {
   const [dark, setDark] = useState(true)
   const [mobileNav, setMobileNav] = useState(false)
   const [checkedIn, setCheckedIn] = useState(false)
-  const [billState, setBillState] = useState(bills)
   const [toast, setToast] = useState('')
   const [search, setSearch] = useState('')
 
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2600) }
-  const filteredBills = useMemo(() => billState.filter((b) => b.join(' ').toLowerCase().includes(search.toLowerCase())), [billState, search])
   const show = (label: string) => { setActive(label); setMobileNav(false) }
 
   return (
@@ -67,7 +60,7 @@ export default function Page() {
       <main className="main-area">
         <header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)} aria-label="Open navigation"><Menu /></button><div className="crumb"><span>Workspace</span><ChevronDown size={14} /><b>{active}</b></div><div className="top-actions"><label className="search"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search anything..." /><kbd>⌘ K</kbd></label><button className="icon-button" onClick={() => notify('No new notifications')} aria-label="Notifications"><Bell size={18} /><i /></button><button className="icon-button" onClick={() => setDark(!dark)} aria-label="Toggle theme">{dark ? <Sun size={18} /> : <Moon size={18} />}</button><div className="top-avatar">SH</div></div></header>
         <div className="content">
-          {active !== 'Dashboard' && (
+          {active !== 'Dashboard' && active !== 'Finance' && (
             <section className="page-heading">
               <div>
                 <span className="eyebrow">BROWNS ENTERPRISE SYSTEM</span>
@@ -83,7 +76,7 @@ export default function Page() {
 
           {active === 'Dashboard' && <DashboardOverview />}
           {active === 'Attendance' && <Attendance checkedIn={checkedIn} setCheckedIn={setCheckedIn} notify={notify} />}
-          {active === 'Finance' && <Finance bills={filteredBills} setBillState={setBillState} notify={notify} />}
+          {active === 'Finance' && <FinanceManagement />}
           {active === 'Logistics' && <Logistics notify={notify} />}
           {active === 'Invoices' && <Invoices notify={notify} />}
           {active === 'Vehicle Management' && <VehicleManagement notify={notify} />}
@@ -97,7 +90,6 @@ export default function Page() {
 
 function Stat({title,value,change,icon:Icon,tone}:any){return <div className="stat"><div className={`stat-icon ${tone}`}><Icon size={18}/></div><span className="stat-title">{title}</span><strong>{value}</strong><small className={change.startsWith('+') ? 'positive' : 'neutral'}>{change.startsWith('+') ? <ArrowUpRight size={13}/> : <ArrowDownRight size={13}/>} {change}</small></div>}
 function Attendance({checkedIn,setCheckedIn,notify}:any){return <section className="panel full-panel"><div className="table-toolbar"><div><span className="eyebrow">DAILY ATTENDANCE LOGS</span><h2>Daily employee attendance</h2></div><button className="button primary" onClick={()=>{setCheckedIn(!checkedIn);notify(checkedIn?'Checked out':'Checked in at 8:42 AM')}}><Clock3 size={16}/>{checkedIn?'Check out':'Check in'}</button></div><div className="summary-strip"><div><span>Present</span><strong>41</strong></div><div><span>Late arrivals</span><strong>3</strong></div><div><span>Absent</span><strong>2</strong></div><div><span>Attendance rate</span><strong>94.2%</strong></div></div><div className="table-wrap"><table><thead><tr><th>Team member</th><th>Role</th><th>Check-in time</th><th>Status</th><th /></tr></thead><tbody>{attendance.map(([name,role,time,status,initials])=><tr key={name}><td><div className="person"><span className="avatar small">{initials}</span><strong>{name}</strong></div></td><td>{role}</td><td>{time}</td><td><Status kind={status.toLowerCase()}>{status}</Status></td><td><button className="icon-button"><MoreHorizontal size={16}/></button></td></tr>)}</tbody></table></div></section>}
-function Finance({bills,setBillState,notify}:any){return <><div className="stat-grid"><Stat title="Outstanding" value="Rs. 8.42m" change="Rs. 1.2m due this week" icon={WalletCards} tone="purple"/><Stat title="Paid this month" value="Rs. 14.8m" change="+12.4% vs July" icon={Check} tone="green"/><Stat title="Overdue" value="Rs. 1.24m" change="2 invoices" icon={AlertTriangle} tone="orange"/><Stat title="Petty cash balance" value="Rs. 640,500" change="Rs. 120k spent this week" icon={WalletCards} tone="blue"/></div><section className="panel full-panel"><div className="table-toolbar"><div><span className="eyebrow">ACCOUNTS PAYABLE</span><h2>Recent bills</h2></div><button className="button secondary" onClick={()=>notify('Bill report exported')}><Download size={16}/> Export</button></div><div className="table-wrap"><table><thead><tr><th>Bill ID</th><th>Vendor</th><th>Description</th><th>Amount</th><th>Status</th><th /></tr></thead><tbody>{bills.map((b:any,i:number)=><tr key={b[0]}><td><strong>{b[0]}</strong></td><td>{b[1]}</td><td>{b[2]}</td><td><strong>{b[3]}</strong></td><td><button onClick={()=>{const next=b[5]==='paid'?'pending':'paid';setBillState((old:any)=>old.map((x:any)=>x[0]===b[0]?[...x,x[1],x[2],x[3],x[4],next]:x));notify(`${b[0]} marked ${next}`)}}><Status kind={b[5]}>{b[4]}</Status></button></td><td><MoreHorizontal size={16}/></td></tr>)}</tbody></table></div></section></>}
 function Logistics({notify}:any){return <><div className="logistics-hero"><div><span className="eyebrow">FLEET & LOGISTICS</span><h2>Keep every site moving.</h2><p>Monitor fuel cards, vehicle assignments, and dispatch activity from one view.</p></div><button className="button primary" onClick={()=>notify('Fuel limit request opened')}><Plus size={16}/> Request fuel limit</button></div><div className="bottom-grid"><section className="panel"><div className="panel-head"><div><span className="eyebrow">FUEL CARDS</span><h2>Usage by card</h2></div><Fuel className="panel-icon" size={18}/></div><div className="card-list"><div className="fuel-card"><span className="card-chip">B</span><div><strong>BE-0042</strong><span>Site operations · Hilux</span></div><b>Rs. 420,800</b><Status kind="active">Active</Status></div><div className="fuel-card"><span className="card-chip orange-chip">B</span><div><strong>BE-0038</strong><span>Fleet · Transit</span></div><b>Rs. 198,400</b><Status kind="warning">Near limit</Status></div></div></section><section className="panel"><div className="panel-head"><div><span className="eyebrow">DISPATCH BOARD</span><h2>Today’s movements</h2></div><Truck size={18} className="panel-icon"/></div><div className="dispatch"><div><span className="time">09:30</span><strong>Steel delivery</strong><span>Lekki → Project Atlas</span></div><Status kind="active">In transit</Status></div><div className="dispatch"><div><span className="time">11:00</span><strong>Equipment transfer</strong><span>Ikeja → Project Delta</span></div><Status kind="pending">Scheduled</Status></div></section></div></>}
 function VehicleManagement({notify}:any){
   const [selected, setSelected] = useState<any>(null)
