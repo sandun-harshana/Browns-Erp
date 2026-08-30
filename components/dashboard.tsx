@@ -19,6 +19,7 @@ import {
   Building2,
   Receipt,
   Layers,
+  ShieldAlert,
 } from "lucide-react";
 
 interface CategoryExpense {
@@ -48,21 +49,36 @@ export default function DashboardOverview() {
     { category: "Food", amount: 0, percentage: 0, color: "bg-purple-500", badgeBg: "bg-purple-500/10 border-purple-500/20", textColor: "text-purple-400" },
   ]);
 
-  const [userName, setUserName] = useState("Executive Officer");
+  const [userName, setUserName] = useState("Sandun Harshana");
+  const [userRole, setUserRole] = useState("Admin");
+  const [userEmpId, setUserEmpId] = useState("BE0174");
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>("");
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // 1. User Session
+      // 1. User Session & Profile Retrieval
       const { data: sessionData } = await supabase.auth.getSession();
       const user = sessionData?.session?.user;
-      if (user?.user_metadata?.full_name) {
-        setUserName(user.user_metadata.full_name);
-      } else if (user?.email) {
-        const namePart = user.email.split("@")[0];
-        setUserName(namePart.charAt(0).toUpperCase() + namePart.slice(1));
+      if (user) {
+        // Query Supabase 'profiles' table for role & employee details
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (profile) {
+          setUserName(profile.full_name || "BEC Employee");
+          setUserRole(profile.role || "Engineers");
+          setUserEmpId(profile.employee_id || "BE-EMP");
+        } else {
+          const meta = user.user_metadata || {};
+          setUserName(meta.full_name || user.email?.split("@")[0] || "Sandun Harshana");
+          setUserRole(meta.role || "Admin");
+          setUserEmpId(meta.employee_id || "BE0174");
+        }
       }
 
       // 2. Pending Bills Total aggregated from Supabase 'bills' table where status = 'Pending'
@@ -94,7 +110,6 @@ export default function DashboardOverview() {
         ).length;
         calculatedRate = Math.round((presentStaff / totalStaff) * 1000) / 10;
       } else {
-        // Default baseline metrics if table is empty
         calculatedRate = 94.2;
         totalStaff = 45;
         presentStaff = 42;
@@ -110,7 +125,7 @@ export default function DashboardOverview() {
         totalFuelUsage: "4,280 L",
       });
 
-      // 4. Visual Analytics: Petty Cash Expenses by Category (Materials vs Fuel vs Transport vs Food)
+      // 4. Visual Analytics: Petty Cash Expenses by Category
       const { data: allBills, error: catErr } = await supabase
         .from("bills")
         .select("category, amount");
@@ -136,12 +151,10 @@ export default function DashboardOverview() {
           } else if (cat === "Food" || cat.toLowerCase().includes("food")) {
             categoryTotals["Food"] += amt;
           } else {
-            // Default petty cash fallback category allocation
             categoryTotals["Materials"] += amt;
           }
         });
       } else {
-        // Benchmark realistic figures if table has no bill records yet
         categoryTotals["Materials"] = 1250000;
         categoryTotals["Fuel"] = 840000;
         categoryTotals["Transport"] = 420000;
@@ -183,16 +196,15 @@ export default function DashboardOverview() {
   useEffect(() => {
     fetchDashboardData();
 
-    // Subscribe to live database updates via Supabase realtime channels
     const billsChannel = supabase
-      .channel("executive-dashboard-bills")
+      .channel("executive-dashboard-bills-rbac")
       .on("postgres_changes", { event: "*", schema: "public", table: "bills" }, () => {
         fetchDashboardData();
       })
       .subscribe();
 
     const attChannel = supabase
-      .channel("executive-dashboard-attendance")
+      .channel("executive-dashboard-attendance-rbac")
       .on("postgres_changes", { event: "*", schema: "public", table: "attendance" }, () => {
         fetchDashboardData();
       })
@@ -210,23 +222,24 @@ export default function DashboardOverview() {
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Executive Header Banner */}
+        {/* Executive Header Banner displaying Name - Role */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
           <div className="absolute -right-12 -top-12 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  LIVE SUPABASE CONNECTED
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                  AUTHENTICATED PROFILE ({userEmpId})
                 </span>
-                <span className="text-slate-500 text-xs hidden sm:inline">• Browns Engineering & Construction</span>
+                <span className="text-slate-400 text-xs font-semibold">• Browns Engineering &amp; Construction</span>
               </div>
-              <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-white">
-                Good morning, <span className="text-amber-400">{userName}</span>
+              <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white">
+                Good morning, <span className="text-amber-400">{userName}</span>{" "}
+                <span className="text-slate-400 text-xl font-normal">— [{userRole}]</span>
               </h1>
               <p className="text-slate-400 text-sm md:text-base mt-1">
-                Executive operational dashboard & real-time enterprise telemetry.
+                Role-Based Operational Control &amp; Telemetry. Access Level: <strong className="text-emerald-400">{userRole}</strong>
               </p>
             </div>
 
@@ -251,7 +264,6 @@ export default function DashboardOverview() {
         {/* Core Live Metrics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           
-          {/* Active Projects */}
           <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-6 transition-all duration-200 shadow-lg relative group">
             <div className="flex items-center justify-between">
               <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">Active Projects</span>
@@ -272,7 +284,6 @@ export default function DashboardOverview() {
             </div>
           </div>
 
-          {/* Today's Attendance Rate */}
           <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-6 transition-all duration-200 shadow-lg relative group">
             <div className="flex items-center justify-between">
               <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">Today's Attendance Rate</span>
@@ -293,7 +304,6 @@ export default function DashboardOverview() {
             </div>
           </div>
 
-          {/* Pending Bills Total */}
           <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-6 transition-all duration-200 shadow-lg relative group">
             <div className="flex items-center justify-between">
               <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">Pending Bills Total</span>
@@ -311,7 +321,6 @@ export default function DashboardOverview() {
             </div>
           </div>
 
-          {/* Fleet Fuel Consumption */}
           <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-6 transition-all duration-200 shadow-lg relative group">
             <div className="flex items-center justify-between">
               <span className="text-xs uppercase font-bold text-slate-400 tracking-wider">Fleet Fuel Consumption</span>
@@ -337,7 +346,6 @@ export default function DashboardOverview() {
         {/* Analytics Section: Visual Petty Cash Expenses Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Main Visual Breakdown Panel */}
           <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
               <div>
@@ -360,7 +368,6 @@ export default function DashboardOverview() {
               </div>
             </div>
 
-            {/* Stacked Multi-Color Progress Bar */}
             <div className="mt-6 space-y-2">
               <div className="flex justify-between text-xs text-slate-400 font-medium">
                 <span>Distribution Breakdown</span>
@@ -378,7 +385,6 @@ export default function DashboardOverview() {
               </div>
             </div>
 
-            {/* Individual Category CSS Analytics Bars */}
             <div className="mt-8 space-y-5">
               {categoryBreakdown.map((item) => (
                 <div key={item.category} className="space-y-1.5">
@@ -406,49 +412,47 @@ export default function DashboardOverview() {
             </div>
           </div>
 
-          {/* Quick Operations & Telemetry Panel */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-2 pb-4 border-b border-slate-800">
                 <Activity className="w-5 h-5 text-amber-400" />
                 <h2 className="text-lg font-bold text-white tracking-wide">
-                  Executive Quick Actions
+                  Role Permission Matrix
                 </h2>
               </div>
 
               <div className="mt-6 space-y-3">
-                <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between">
+                <div className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-800 flex items-center justify-between text-xs">
                   <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Real-time Currency</span>
-                    <span className="text-sm font-bold text-slate-200">LKR (Rs.) Sri Lankan Rupee</span>
+                    <span className="font-bold text-slate-200 block">Admins &amp; RPMs</span>
+                    <span className="text-slate-400">Full finance approvals &amp; fleet management</span>
                   </div>
-                  <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded border border-emerald-500/20">Active</span>
+                  <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 font-bold rounded border border-amber-500/20">Full</span>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between">
+                <div className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-800 flex items-center justify-between text-xs">
                   <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Today's Attendance</span>
-                    <span className="text-sm font-bold text-slate-200">{stats.attendanceRate}% Staff Present</span>
+                    <span className="font-bold text-slate-200 block">Engineers &amp; Tech Officers</span>
+                    <span className="text-slate-400">Attendance logging &amp; raw mileage inputs</span>
                   </div>
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 font-bold rounded border border-blue-500/20">Operational</span>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between">
+                <div className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-800 flex items-center justify-between text-xs">
                   <div>
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Pending Bills Action</span>
-                    <span className="text-sm font-bold text-slate-200">Rs. {stats.pendingBillsTotal.toLocaleString()}</span>
+                    <span className="font-bold text-slate-200 block">Cable Technicians</span>
+                    <span className="text-slate-400">Personal profile &amp; single data logs</span>
                   </div>
-                  <Clock className="w-5 h-5 text-amber-400" />
+                  <span className="px-2 py-0.5 bg-purple-500/10 text-purple-400 font-bold rounded border border-purple-500/20">Restricted</span>
                 </div>
               </div>
             </div>
 
-            {/* Tip Footer */}
             <div className="mt-6 pt-4 border-t border-slate-800 bg-slate-950/40 -mx-6 -mb-6 p-6 rounded-b-2xl">
               <div className="text-xs text-slate-400 flex items-start gap-2 leading-relaxed">
                 <Zap className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  <b>Executive Tip:</b> Data syncs automatically with live Supabase database tables (<code className="text-amber-400">bills</code> &amp; <code className="text-amber-400">attendance</code>).
+                  <b>Active Session:</b> Logged in as <code className="text-amber-400">{userName}</code> ({userRole}).
                 </span>
               </div>
             </div>
