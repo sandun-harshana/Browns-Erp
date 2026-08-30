@@ -124,17 +124,23 @@ function VehicleManagement({notify}:any){
 
     const channel = supabase
       .channel('vehicles-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, (payload) => {
-        const type = (payload.eventType || payload.event) as string
+      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'vehicles' }, (payload: any) => {
+        const type = String(payload?.eventType || payload?.event || '')
         if (type === 'INSERT' || type === 'insert') {
-          setVehiclesList((prev) => {
-            if (prev.some((v) => v.id === payload.new.id)) return prev
-            return [payload.new, ...prev]
-          })
+          if (payload?.new) {
+            setVehiclesList((prev) => {
+              if (prev.some((v) => v.id === payload.new.id)) return prev
+              return [payload.new, ...prev]
+            })
+          }
         } else if (type === 'UPDATE' || type === 'update') {
-          setVehiclesList((prev) => prev.map((v) => (v.id === payload.new.id ? payload.new : v)))
+          if (payload?.new) {
+            setVehiclesList((prev) => prev.map((v) => (v.id === payload.new.id ? payload.new : v)))
+          }
         } else if (type === 'DELETE' || type === 'delete') {
-          setVehiclesList((prev) => prev.filter((v) => v.id !== payload.old.id))
+          if (payload?.old) {
+            setVehiclesList((prev) => prev.filter((v) => v.id !== payload.old.id))
+          }
         }
       })
       .subscribe()

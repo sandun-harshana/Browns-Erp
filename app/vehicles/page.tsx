@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-interface Vehicle {
+export interface Vehicle {
   id: string;
   vehicle_number: string;
   vehicle_type: string;
@@ -33,8 +33,8 @@ export default function VehicleManagement() {
     const channel = supabase
       .channel("realtime-vehicles")
       .on(
-        "postgres_changes",
-        { event: "*", pattern: "public", table: "vehicles" },
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "vehicles" },
         () => {
           fetchVehicles();
         }
@@ -54,9 +54,20 @@ export default function VehicleManagement() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      if (data) setVehicles(data);
+      if (data) {
+        const typedVehicles: Vehicle[] = data.map((v: Record<string, any>) => ({
+          id: String(v.id ?? ""),
+          vehicle_number: String(v.vehicle_number ?? "WP CAS-0000"),
+          vehicle_type: String(v.vehicle_type ?? "Tipper"),
+          assigned_driver: String(v.assigned_driver ?? "Unassigned"),
+          current_mileage: Number(v.current_mileage ?? 0),
+          fuel_card_number: String(v.fuel_card_number ?? "N/A"),
+          fuel_balance: Number(v.fuel_balance ?? 0),
+        }));
+        setVehicles(typedVehicles);
+      }
     } catch (error: any) {
-      alert("Error fetching vehicles: " + error.message);
+      alert("Error fetching vehicles: " + (error?.message ?? "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -94,7 +105,7 @@ export default function VehicleManagement() {
       
       alert("Vehicle added successfully!");
     } catch (error: any) {
-      alert("Error adding vehicle: " + error.message);
+      alert("Error adding vehicle: " + (error?.message ?? "Unknown error"));
     }
   };
 
@@ -156,9 +167,9 @@ export default function VehicleManagement() {
                         <td className="p-3 font-semibold text-amber-400">{v.vehicle_number}</td>
                         <td className="p-3">{v.vehicle_type}</td>
                         <td className="p-3">{v.assigned_driver || "N/A"}</td>
-                        <td className="p-3">{v.current_mileage.toLocaleString()} KM</td>
+                        <td className="p-3">{(v.current_mileage ?? 0).toLocaleString()} KM</td>
                         <td className="p-3">{v.fuel_card_number || "N/A"}</td>
-                        <td className="p-3 text-emerald-400">Rs. {v.fuel_balance.toLocaleString()}</td>
+                        <td className="p-3 text-emerald-400">Rs. {(v.fuel_balance ?? 0).toLocaleString()}</td>
                       </tr>
                     ))
                   )}
